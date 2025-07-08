@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Bota Ptaszunio</title>
+    <link rel="stylesheet" href="/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+
+    <header class="header">
+        <img src="<%= bot.avatar %>" alt="Avatar Bota">
+        <h1>Panel Bota Ptaszunio</h1>
+        <div id="status-light" class="subtitle">
+            <span class="status-indicator"></span>Aktywny
+        </div>
+    </header>
+
+    <main class="dashboard-grid">
+        <div class="card" style="animation-delay: 0.1s;">
+            <h2>Status Ogólny</h2>
+            <div class="info-grid">
+                <div class="info-item">
+                    <span class="label">Nazwa bota</span>
+                    <span class="value small"><%= bot.tag %></span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Czas pracy (Uptime)</span>
+                    <span id="uptime" class="value small"><%= bot.uptime %></span>
+                </div>
+                <div class="info-item">
+                    <span class="label">ID Bota</span>
+                    <span class="value small"><%= bot.id %></span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Aktywne procesy</span>
+                    <span id="active-partnerships" class="value"><%= stats.activePartnerships %></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="card" style="animation-delay: 0.2s;">
+            <h2>Statystyki Partnerstw</h2>
+            <div class="info-grid">
+                <div class="info-item">
+                    <span class="label">Wszystkie partnerstwa</span>
+                    <span id="total-partnerships" class="value"><%= stats.totalPartnerships %></span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Unikalni partnerzy</span>
+                    <span id="unique-partners" class="value"><%= stats.uniquePartners %></span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Liczba kategorii</span>
+                    <span class="value"><%= stats.categoryCount %></span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Zablokowani</span>
+                    <span class="value"><%= stats.blacklistCount %></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="card" style="animation-delay: 0.3s;">
+            <h2>Zarządzanie</h2>
+            <div class="info-grid" style="grid-template-columns: 1fr;">
+                 <a href="/manage/categories" class="btn btn-secondary">Zarządzaj Kategoriami</a>
+                 <a href="/manage/ad-channels" class="btn btn-secondary">Zarządzaj Kanałami Reklam</a>
+                 <a href="/manage/rem-channels" class="btn btn-secondary">Zarządzaj Kanałami Przypomnień</a>
+            </div>
+        </div>
+
+        <div class="card" style="grid-column: 1 / -1; animation-delay: 0.4s;">
+            <h2>Aktywność w Ostatnim Tygodniu</h2>
+            <div class="chart-container">
+                <canvas id="partnershipsChart"></canvas>
+            </div>
+        </div>
+
+        <div class="card" style="grid-column: 1 / -1; animation-delay: 0.5s;">
+            <h2>Logi na Żywo</h2>
+            <div id="log-container" class="log-container"></div>
+        </div>
+    </main>
+
+    <footer>
+        Strona wygenerowana: <span id="generation-time"><%= new Date().toLocaleString('pl-PL') %></span>
+    </footer>
+
+
+    <script>
+        // --- Dynamiczne Aktualizacje ---
+        async function updateStats() {
+            try {
+                const response = await fetch('/api/stats');
+                const data = await response.json();
+
+                document.getElementById('uptime').textContent = data.bot.uptime;
+                document.getElementById('active-partnerships').textContent = data.stats.activePartnerships;
+                document.getElementById('total-partnerships').textContent = data.stats.totalPartnerships;
+                document.getElementById('unique-partners').textContent = data.stats.uniquePartners;
+            } catch (error) {
+                console.error('Błąd podczas odświeżania statystyk:', error);
+            }
+        }
+        setInterval(updateStats, 5000); // Odświeżaj co 5 sekund
+
+        // --- Wykres ---
+        const ctx = document.getElementById('partnershipsChart').getContext('2d');
+        const chartData = <%- JSON.stringify(chartData) %>;
+
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: chartData.labels,
+                datasets: [{
+                    label: 'Nowe Partnerstwa',
+                    data: chartData.data,
+                    backgroundColor: 'rgba(203, 166, 247, 0.2)',
+                    borderColor: 'rgba(203, 166, 247, 1)',
+                    borderWidth: 2,
+                    tension: 0.3,
+                    fill: true,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                           color: '#cdd6f4',
+                           stepSize: 1
+                        }
+                    },
+                    x: {
+                        ticks: {
+                            color: '#cdd6f4'
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: '#cdd6f4'
+                        }
+                    }
+                }
+            }
+        });
+
+        // --- Logi na Żywo (Socket.IO) ---
+// --- Logi na Żywo (Socket.IO) ---
+        const socket = io();
+        const logContainer = document.getElementById('log-container');
+
+        const addLogEntry = (log) => {
+            const logEntry = document.createElement('div');
+            logEntry.className = 'log-entry';
+
+            const timestampSpan = document.createElement('span');
+            timestampSpan.className = 'timestamp';
+            timestampSpan.textContent = `[${new Date(log.timestamp).toLocaleTimeString()}]`;
+            
+            const messageSpan = document.createElement('span');
+            messageSpan.className = `log-level-${log.level}`;
+            messageSpan.textContent = log.message;
+
+            logEntry.appendChild(timestampSpan);
+            logEntry.appendChild(messageSpan);
+            
+            logContainer.prepend(logEntry);
+
+            while (logContainer.children.length > 50) {
+                logContainer.removeChild(logContainer.lastChild);
+            }
+        };
+
+        socket.on('connect', () => {
+            console.log('Połączono z serwerem logów!');
+            document.getElementById('status-light').style.color = '#a6e3a1'; // zielony
+        });
+
+        socket.on('disconnect', () => {
+            console.error('Rozłączono z serwerem logów.');
+            document.getElementById('status-light').style.color = '#f38ba8'; // czerwony
+        });
+
+        // Odbierz nowe, pojedyncze logi
+        socket.on('new_log', (log) => {
+            addLogEntry(log);
+        });
+
+        // Odbierz historię logów po pierwszym połączeniu
+        socket.on('initial_logs', (logs) => {
+            logContainer.innerHTML = ''; // Wyczyść kontener na wszelki wypadek
+            logs.forEach(log => addLogEntry(log));
+            console.log(`Otrzymano ${logs.length} logów historycznych.`);
+        });
+    </script>
+
+</body>
+</html>
