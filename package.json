@@ -1,9 +1,9 @@
 {
   "name": "HuuTaoo Partnerstwa",
   "version": "3.0.0",
-  "main": "main.js",
+  "main": "index.js",
   "scripts": {
-    "start": "node main.js"
+    "start": "node index.js"
   },
   "dependencies": {
     "axios": "^1.10.0",
